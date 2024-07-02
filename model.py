@@ -63,6 +63,20 @@ class CRFLayer(nn.Module):
     def decode(self,inputs,lengths=None):
         return self.crf.decode(inputs)
 
-class ClsModelBert(nn.Module):
-    def __init__(self,) -> None:
+class ClsModelBertBase(nn.Module):
+    def __init__(self,bert_model,hidden_size=768,num_symptoms=331,num_labels=3) -> None:
         super().__init__()
+        self.bert_model = bert_model
+        self.hidden_size = hidden_size
+        self.cls = nn.Linear(hidden_size,num_labels)
+        self.symptom_matrix = nn.Parameter(torch.randn(num_symptoms,hidden_size))
+        
+    def forward(self,input_ids,attention_mask,):
+        output = self.bert_model(input_ids=input_ids,
+                            attention_mask=attention_mask).last_hidden_state
+        # [batch, seq_len, emb]
+        output = x[:,0,:] #[batch,emb] 使用cls的 embedding 代表作为句子的 embedding
+        output = self.cls(output) # [batch,num_labels]
+
+        
+        

@@ -116,10 +116,10 @@ class ClsDatasetBert(Dataset):
                 symptom_label = [int(s) for s in dialogue['symptom_type']]
                 symptom_tuple = [(symptom_ids[i],symptom_label[i]) for i in range(len(symptom_label))]
                 symptom_tuple.sort(key=lambda x:x[0])
-                symptom_label_new = []
+                symptom_label_new = [0] * len(symptom2id)
                 for (idx,tag) in symptom_ids:
                     symptom_vector[idx] = 1
-                    symptom_label_new.append(tag)
+                    symptom_label_new[idx] = tag
                 symptoms.append(tag)
                 labels.append(symptom_label)
         return {'sentences':sentences,"symptoms":symptoms,"labels":labels}
@@ -137,13 +137,25 @@ class ClsDatasetBert(Dataset):
         attention_mask = [1.0] * len(input_ids)
         symptom = self.data['symptom'][index]
         label = self.data['symptom'][index]
+        label_len = len(label)
         
+        return {'input_ids':input_ids,
+                "attention_mask":attention_mask,
+                "symptom":symptom,
+                "label":label,
+                "label_len":label_len
+                }
         
-    
                 
 
 def collate_fn_cls_bert(batch):
-    pass
+    batch_len = [f['label_len'] for f in batch]
+    max_len = max([len(f['input_ids']) for f in batch])
+    input_ids = [f['input_ids'] + [0]*(max_len-len(f['input_ids'])) for f in batch]
+    attention_mask = [f['attention_mask'] + [0.0]*(max_len-len(f['attention_mask'])) for f in batch]
+    labels = [f['label'] for f in batch]
+    return torch.LongTensor(input_ids), torch.tensor(attention_mask),torch.tensor(labels),batch_len
+    
 
 
 
