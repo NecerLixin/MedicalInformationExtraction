@@ -54,10 +54,13 @@ def train(model:NerModelBert,train_dataset,dev_dataset,args,log_recorder:LogReco
     criterion = nn.CrossEntropyLoss()
     optimizer = AdamW(model.parameters(),lr=args.lr)
     total_step = len(train_loader) / args.batch_size * args.epochs
-    scheduler = get_linear_schedule_with_warmup(optimizer,num_training_steps=args.warmup_rate*total_step)
     train_loader = DataLoader(train_dataset,
                               batch_size=args.batch_size,
                               collate_fn=collate_fn_bert)
+    scheduler = get_linear_schedule_with_warmup(optimizer=optimizer,
+                                                num_training_steps=total_step,
+                                                num_warmup_steps=args.warmup_rate*total_step)
+    
     step = 0
     best_f1 = -1
     loss_list = []

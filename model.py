@@ -72,11 +72,15 @@ class ClsModelBertBase(nn.Module):
         self.symptom_matrix = nn.Parameter(torch.randn(num_symptoms,hidden_size))
         
     def forward(self,input_ids,attention_mask,):
-        output = self.bert_model(input_ids=input_ids,
+        embedding = self.bert_model(input_ids=input_ids,
                             attention_mask=attention_mask).last_hidden_state
         # [batch, seq_len, emb]
-        output = x[:,0,:] #[batch,emb] 使用cls的 embedding 代表作为句子的 embedding
-        output = self.cls(output) # [batch,num_labels]
+        embedding = embedding[:,0,:]#[batch,emb] 使用cls的 embedding 代表作为句子的 embedding
+        embedding = embedding.unsqueeze(dim=1) # [b,1,e]
+        embedding = torch.tanh(embedding * self.symptom_matrix.unsqueeze(dim=0)) # [b,1,e] * [1,m,e] = [b,m,e]
+        output = self.cls(embedding) # [batch,num_labels]
+        return output
+    
 
         
         

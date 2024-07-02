@@ -12,7 +12,7 @@ device = config.Config.device
 label2id = json.load(open('label2id.json',encoding='utf-8'))
 char2id = json.load(open('char2id.json',encoding='utf-8'))
 id2symptom = pd.read_csv('nlp2024-data/dataset/symptom_norm.csv').to_dict()['norm']
-symptom2id = {k:id2symptom[k] for k in id2symptom}
+symptom2id = {id2symptom[k]:k for k in id2symptom}
 
 class NERDataset(Dataset):
     def __init__(self,data_path) -> None:
@@ -88,7 +88,7 @@ class ClsDatasetBert(Dataset):
         self.data_path = data_path
         data = json.load(open(data_path)) # 一个字典
         self.data = self.data_process(data)
-    
+        self.tokenizer = tokenizer
     def data_process(self,data):
         """
         数据处理
@@ -110,18 +110,18 @@ class ClsDatasetBert(Dataset):
             dialogues = val['dialogue']
             for dialogue in dialogues:
                 sentences.append(dialogue['sentence'])
-                symptom_ids = [symptom2id[s] for s in dialogue['symptom']]
+                symptom_ids = [symptom2id[s] for s in dialogue['symptom_norm']]
 
                 symptom_vector = [0] * len(symptom2id)
                 symptom_label = [int(s) for s in dialogue['symptom_type']]
                 symptom_tuple = [(symptom_ids[i],symptom_label[i]) for i in range(len(symptom_label))]
                 symptom_tuple.sort(key=lambda x:x[0])
                 symptom_label_new = [0] * len(symptom2id)
-                for (idx,tag) in symptom_ids:
+                for idx,tag in symptom_tuple:
                     symptom_vector[idx] = 1
                     symptom_label_new[idx] = tag
-                symptoms.append(tag)
-                labels.append(symptom_label)
+                symptoms.append(symptom_vector)
+                labels.append(symptom_label_new)
         return {'sentences':sentences,"symptoms":symptoms,"labels":labels}
     def __len__(self,):
         return len(self.data['sentences'])
@@ -135,8 +135,8 @@ class ClsDatasetBert(Dataset):
         input_ids = self.tokenizer.build_inputs_with_special_tokens(input_ids)
         length = len(input_ids)
         attention_mask = [1.0] * len(input_ids)
-        symptom = self.data['symptom'][index]
-        label = self.data['symptom'][index]
+        symptom = self.data['symptoms'][index]
+        label = self.data['labels'][index]
         label_len = len(label)
         
         return {'input_ids':input_ids,
