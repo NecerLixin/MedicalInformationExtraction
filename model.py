@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from transformers import BertModel
 from torchcrf import CRF
+import torch.nn.functional as F
+
 class NerModelLSTM(nn.Module):
     def __init__(self, num_embeddings, embedding_dim,num_labels,hidden_size):
         super().__init__()
@@ -66,3 +68,43 @@ class CRFLayer(nn.Module):
 class ClsModelBert(nn.Module):
     def __init__(self,) -> None:
         super().__init__()
+
+
+class NerModelLSTMAttention(nn.Module):
+    def __init__(self, num_embeddings, embedding_dim,num_labels,hidden_size):
+        super().__init__()
+        self.embedding = nn.Embedding(num_embeddings=num_embeddings,
+                                      embedding_dim=embedding_dim,
+                                      )
+        self.crf_layer = CRFLayer(num_labels)
+        self.lstm = nn.LSTM(input_size=embedding_dim,
+                            hidden_size=hidden_size,
+                            num_layers=2,bidirectional=True,
+                            )
+        self.fc = nn.Linear(2*hidden_size, num_labels)
+        self.num_labels = num_labels
+
+        self.w_omega = nn.Parameter(torch.Tensor(hidden_size * 2, hidden_size * 2))
+        self.u_omega = nn.Parameter(torch.Tensor(hidden_size * 2, 1))
+        nn.init.uniform_(self.w_omega, -0.1, 0.1)
+        nn.init.uniform_(self.u_omega, -0.1, 0.1)
+        # [batch,len,emb]
+        # [len,batch,emb]
+
+    def attention(self,x):
+        u=torch.tanh(torch.matmul(x,self.w_omega))
+        att=torch.matmul(u,self.u_omega)
+        att_score = F.softmax(att,dim=1)
+        scored_x = x*att_score
+        return scored_x
+    def forward(self,train_x):
+        train_x = self.embedding(train_x)
+        train_x = train_x.permute([1,0,2])
+        out,_ = self.lstm(train_x)
+        attn_out = self.attention(out)
+        logits = self.fc(attn_out).permute([1,0,2])
+        return logits
+
+    def decode(self,emission):
+        tag = self.crf_layer.decode(emission)
+        return tag
