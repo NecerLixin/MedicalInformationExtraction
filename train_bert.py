@@ -15,6 +15,7 @@ import torch.nn.functional as F
 import argparse
 from my_utils import LogRecorder
 from datetime import datetime
+from transformers import get_linear_schedule_with_warmup
 
 label2id = json.load(open('label2id.json',encoding='utf-8'))
 device = None
@@ -52,10 +53,11 @@ def eval(model:NerModelBert,dev_dataset,batch_size):
 def train(model:NerModelBert,train_dataset,dev_dataset,args,log_recorder:LogRecorder):
     criterion = nn.CrossEntropyLoss()
     optimizer = AdamW(model.parameters(),lr=args.lr)
+    total_step = len(train_loader) / args.batch_size * args.epochs
+    scheduler = get_linear_schedule_with_warmup(optimizer,num_training_steps=args.warmup_rate*total_step)
     train_loader = DataLoader(train_dataset,
                               batch_size=args.batch_size,
                               collate_fn=collate_fn_bert)
-    total_step = len(train_loader) / args.batch_size
     step = 0
     best_f1 = -1
     loss_list = []
@@ -69,15 +71,17 @@ def train(model:NerModelBert,train_dataset,dev_dataset,args,log_recorder:LogReco
             optimizer.zero_grad()
             output = model(inputs)
             # loss = F.cross_entropy(output.view(-1,num_labels),label.view(-1),model.crf_layer.transitions)
-            loss = -model.crf_layer.crf(output.permute([1,0,2]),label.permute([1,0]))
+            loss = -model.crf_layer.crf(output,label)
             loss.backward()
             optimizer.step()
+            scheduler.step()
             loss_list.append(loss.item())
             loss_total += loss.item()
             if step % len(train_loader) == 0:
                 f1 = eval(model,dev_dataset,args.batch_size)
                 log_recorder.add_log(step=step,loss=loss.item(),f1=f1)
                 if(f1 > best_f1):
+                    torch.save(model.state_dict(),args.save_path)
                     log_recorder.best_score = {'f1':f1}
                     best_f1 = f1
                 print(f"epoch:{epoch},f1:{f1},loss:{loss_total}")
@@ -88,11 +92,14 @@ def train(model:NerModelBert,train_dataset,dev_dataset,args,log_recorder:LogReco
     
 def main():
     parser = argparse.ArgumentParser(description="Training a bert model.")
-    parser.add_argument("--lr",type=float, default=1e-5, help="Learning rate.")
-    parser.add_argument("--epochs",type=int, default=3, help='Number of training epochs.')    
-    parser.add_argument("--batch_size", type=int, default=4, help="Training batch size.")
+    parser.add_argument("--lr",type=float, default=5e-5, help="Learning rate.")
+    parser.add_argument("--epochs",type=int, default=30, help='Number of training epochs.')    
+    parser.add_argument("--batch_size", type=int, default=24, help="Training batch size.")
     parser.add_argument("--num_labels", type=int, default=11, help="Number of labels.")
-    parser.add_argument("--device",type=str, default='mps', help="Device used to training model")
+    parser.add_argument("--device",type=str, default='cpu', help="Device used to training model")
+    parser.add_argument("--save_path",type=str, default='model_save/model.pth', help="Path to save model")
+    parser.add_argument("--pretrained_model", type=str, default="bert-base-chinese", help="Pretrained bert model")
+    parser.add_argument("--warmup_rate", type=float, default=0.06, help="Warm up rate.")
     args = parser.parse_args()
     
     global device
@@ -102,8 +109,8 @@ def main():
     log_recorder = LogRecorder(info="BERT+CRF",config=args_dict,verbose=False)
     
     
-    tokenizer = BertTokenizer.from_pretrained('bert-base-chinese')
-    bert_model = BertModel.from_pretrained('bert-base-chinese').to(device)
+    tokenizer = BertTokenizer.from_pretrained(args.pretrained_model)
+    bert_model = BertModel.from_pretrained(args.pretrained_model).to(device)
     model = NerModelBert(bert_model=bert_model,num_labels=args.num_labels)
     model.to(device)
     train_dataset = NERDatasetBert('nlp2024-data/dataset/small_train.json',tokenizer)

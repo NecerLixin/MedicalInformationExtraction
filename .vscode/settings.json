@@ -2,6 +2,7 @@
     "cSpell.ignoreWords": [],
     "cSpell.words": [
         "argmax",
-        "preds"
+        "preds",
+        "randn"
     ]
 }
