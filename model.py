@@ -2,6 +2,29 @@ import torch
 import torch.nn as nn
 from transformers import BertModel
 from torchcrf import CRF
+class NerModelLSTM(nn.Module):
+    def __init__(self, num_embeddings, embedding_dim,num_labels,hidden_size):
+        super().__init__()
+        self.embedding = nn.Embedding(num_embeddings=num_embeddings,
+                                      embedding_dim=embedding_dim,
+                                      )
+        self.crf_layer = model.CRFLayer(num_labels)
+        self.lstm = nn.LSTM(input_size=embedding_dim,
+                            hidden_size=hidden_size,
+                            num_layers=2,bidirectional=True,
+                            )
+        self.fc = nn.Linear(2*hidden_size, num_labels)
+        # [batch,len,emb]
+        # [len,batch,emb]
+    def forward(self,train_x):
+        train_x = self.embedding(train_x)
+        train_x = train_x.permute([1,0,2])
+        out,_ = self.lstm(train_x)
+        out = self.fc(out).permute([1,0,2])
+        return out
+    def decode(self,emission):
+        tag = self.crf_layer.decode(emission)
+        return tag
 class NerModelBert(nn.Module):
     def __init__(self, bert_model:BertModel,num_labels,hidden_size=768) -> None:
         super().__init__()
@@ -40,4 +63,5 @@ class CRFLayer(nn.Module):
     
     def decode(self,inputs,lengths=None):
         return self.crf.decode(inputs)
-    
+
+

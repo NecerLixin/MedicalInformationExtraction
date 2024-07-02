@@ -7,15 +7,15 @@ import config
 from datetime import datetime
 device = config.Config.device
 
-label2id = json.load(open('label2id.json'))
-char2id = json.load(open('char2id.json'))
+label2id = json.load(open('label2id.json',encoding='utf-8'))
+char2id = json.load(open('char2id.json',encoding='utf-8'))
 
 
 class NERDataset(Dataset):
     def __init__(self,data_path) -> None:
         super().__init__()
         self.data_path = data_path
-        data = json.load(open(data_path)) # 一个字典
+        data = json.load(open(data_path,encoding='utf-8')) # 一个字典
         self.data = self.data_process(data)
     
     def data_process(self,data):
@@ -85,7 +85,7 @@ def collate_fn(batch):
     max_len = max([len(f['sentence']) for f in batch])
     sentence = []
     for f in batch:
-        s = f['sentence'] + (max_len - len(f['sentence']))*['#']
+        s = f['sentence'] + (max_len - len(f['sentence']))*[char2id['#']]
         sentence.append(s)
     label = [s['label'] + (max_len-len(s['label']))*[label2id['O']] for s in batch]
     
