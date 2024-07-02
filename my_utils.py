@@ -9,8 +9,8 @@ import pandas as pd
 
 device = config.Config.device
 
-label2id = json.load(open('label2id.json'))
-char2id = json.load(open('char2id.json'))
+label2id = json.load(open('label2id.json',encoding='utf-8'))
+char2id = json.load(open('char2id.json',encoding='utf-8'))
 id2symptom = pd.read_csv('nlp2024-data/dataset/symptom_norm.csv').to_dict()['norm']
 symptom2id = {k:id2symptom[k] for k in id2symptom}
 
@@ -18,7 +18,7 @@ class NERDataset(Dataset):
     def __init__(self,data_path) -> None:
         super().__init__()
         self.data_path = data_path
-        data = json.load(open(data_path)) # 一个字典
+        data = json.load(open(data_path,encoding='utf-8')) # 一个字典
         self.data = self.data_process(data)
     
     def data_process(self,data):
@@ -143,7 +143,7 @@ class ClsDatasetBert(Dataset):
                 
 
 def collate_fn_cls_bert(batch):
-    
+    pass
 
 
 
