@@ -40,4 +40,10 @@ class CRFLayer(nn.Module):
     
     def decode(self,inputs,lengths=None):
         return self.crf.decode(inputs)
-    
+
+
+
+class ClsModelBert(nn.Module):
+    def __init__(self,) -> None:
+        super().__init__()
+        
