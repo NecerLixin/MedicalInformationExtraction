@@ -1,0 +1,13 @@
+{
+    "B-Drug":0,
+    "B-Drug_Category":1,
+    "B-Medical_Examination":2,
+    "B-Operation":3,
+    "B-Symptom":4,
+    "I-Drug":5,
+    "I-Drug_Category":6,
+    "I-Medical_Examination":7,
+    "I-Operation":8,
+    "I-Symptom":9,
+    "O":10
+}

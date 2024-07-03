@@ -80,12 +80,12 @@ def main():
     parser.add_argument("--device", type=str, default='cpu', help="Device used to training model")
     parser.add_argument("--save_path", type=str, default='model_save/LSTMmodel.pth', help="Path to save model")
     args = parser.parse_args()
-    dataset_train = NERDataset('nlp2024-data/dataset/train.json')
+    dataset_train = NERDataset('nlp2024-data/dataset/small_train.json')
     dataloader_train = DataLoader(dataset_train,batch_size=args.batch_size,collate_fn=collate_fn)
-    dataset_eval = NERDataset('nlp2024-data/dataset/dev.json')
+    dataset_eval = NERDataset('nlp2024-data/dataset/small_dev.json')
     dataloader_eval = DataLoader(dataset_eval,batch_size=args.batch_size,collate_fn=collate_fn)
     with open('char2id.json','r',encoding='utf-8') as f:
-        data = f.read()
+        data = json.load(f)
         lenth = len(data)
     with open('label2id.json','r',encoding='utf-8') as f:
         Data = f.read()

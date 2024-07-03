@@ -58,9 +58,9 @@ def train(model:ClsModelBertBase,train_dataset,dev_dataset,args,log_recorder:Log
                               batch_size=args.batch_size,
                               collate_fn=collate_fn_cls_bert)
     total_step = len(train_loader) / args.batch_size * args.epochs
-    scheduler = get_linear_schedule_with_warmup(optimizer=optimizer,
-                                                num_training_steps=total_step,
-                                                num_warmup_steps=args.warmup_rate*total_step)
+    # scheduler = get_linear_schedule_with_warmup(optimizer=optimizer,
+                                                # num_training_steps=total_step,
+                                                # num_warmup_steps=args.warmup_rate*total_step)
     
     step = 0
     best_f1 = -1
@@ -79,7 +79,7 @@ def train(model:ClsModelBertBase,train_dataset,dev_dataset,args,log_recorder:Log
             loss = criterion(output.view(-1,args.num_labels),label.view(-1))
             loss.backward()
             optimizer.step()
-            scheduler.step()
+            # scheduler.step()
             loss_list.append(loss.item())
             loss_total += loss.item()
             if step % len(train_loader) == 0:
@@ -111,7 +111,7 @@ def main():
     device = torch.device(args.device)
     
     args_dict = vars(args)
-    log_recorder = LogRecorder(info="BERT+CRF",config=args_dict,verbose=False)
+    log_recorder = LogRecorder(info="Classification Model Bert base.",config=args_dict,verbose=False)
     
     
     tokenizer = BertTokenizer.from_pretrained(args.pretrained_model)
