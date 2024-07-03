@@ -53,7 +53,7 @@ def eval(model, dataset, args):
 def train(model, train_dataset, dev_dataset, test_dataset, args, log_recorder):
 
     train_loader = DataLoader(
-        train_dataset, batch_size=args.batch_size, collate_fn=collate_fn
+        train_dataset, batch_size=args.batch_size, collate_fn=collate_fn, shuffle=True
     )
     step = 0
     best_f1 = -1
@@ -94,7 +94,7 @@ def main():
     parser = argparse.ArgumentParser(description="Training a bert model.")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate.")
     parser.add_argument(
-        "--epochs", type=int, default=50, help="Number of training epochs."
+        "--epochs", type=int, default=20, help="Number of training epochs."
     )
     parser.add_argument(
         "--batch_size", type=int, default=24, help="Training batch size."
@@ -115,19 +115,19 @@ def main():
     parser.add_argument(
         "--train_data_path",
         type=str,
-        default="nlp2024-data/dataset/small_train.json",
+        default="nlp2024-data/dataset/train.json",
         help="File path of train dataset.",
     )
     parser.add_argument(
         "--dev_data_path",
         type=str,
-        default="nlp2024-data/dataset/small_dev.json",
+        default="nlp2024-data/dataset/dev.json",
         help="File path of dev dataset.",
     )
     parser.add_argument(
         "--test_data_path",
         type=str,
-        default="nlp2024-data/dataset/small_dev.json",
+        default="nlp2024-data/dataset/test.json",
         help="File path of test dataset.",
     )
     parser.add_argument("--info", type=str, default="NER LSTM base model.")
