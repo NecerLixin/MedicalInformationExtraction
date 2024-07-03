@@ -4,6 +4,7 @@ from transformers import BertModel
 from torchcrf import CRF
 import torch.nn.functional as F
 
+print(torch.__version__)
 class NerModelLSTM(nn.Module):
     def __init__(self, num_embeddings, embedding_dim,num_labels,hidden_size):
         super().__init__()
