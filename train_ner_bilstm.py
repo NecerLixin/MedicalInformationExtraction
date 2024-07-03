@@ -72,8 +72,8 @@ def train(model, train_dataset, dev_dataset, test_dataset, args, log_recorder):
             loss_total += loss.item()
             optimizer.step()
             if step % len(train_loader) == 0:
-                dev_f1 = eval(model, dev_dataset)
-                test_f1 = eval(model, test_dataset)
+                dev_f1 = eval(model, dev_dataset, args)
+                test_f1 = eval(model, test_dataset, args)
                 log_recorder.add_log(
                     step=step, loss=loss.item(), dev_f1=dev_f1, test_f1=test_f1
                 )
@@ -109,15 +109,36 @@ def main():
         default="model_save/LSTMmodel.pth",
         help="Path to save model",
     )
+    parser.add_argument(
+        "--hidden_size", type=int, default=100, help="Hidden embedding size."
+    )
+    parser.add_argument(
+        "--train_data_path",
+        type=str,
+        default="nlp2024-data/dataset/small_train.json",
+        help="File path of train dataset.",
+    )
+    parser.add_argument(
+        "--dev_data_path",
+        type=str,
+        default="nlp2024-data/dataset/small_dev.json",
+        help="File path of dev dataset.",
+    )
+    parser.add_argument(
+        "--test_data_path",
+        type=str,
+        default="nlp2024-data/dataset/small_dev.json",
+        help="File path of test dataset.",
+    )
     args = parser.parse_args()
     args_dict = vars(args)
 
     global device
     device = torch.device(args.device)
 
-    train_dataset = NERDataset("nlp2024-data/dataset/small_train.json")
-    dev_dataset = NERDataset("nlp2024-data/dataset/small_dev.json")
-    test_dataset = NERDataset("nlp2024-data/dataset/test.json")
+    train_dataset = NERDataset(args.train_data_path)
+    dev_dataset = NERDataset(args.dev_data_path)
+    test_dataset = NERDataset(args.test_data_path)
 
     with open("meta/char2id.json", "r", encoding="utf-8") as f:
         data = json.load(f)
@@ -126,7 +147,8 @@ def main():
         Data = f.read()
         num_labels = len(Data)
     log_recorder = LogRecorder(info="Bi-Lstm+CRF", config=args_dict, verbose=False)
-    model = NerModelLSTM(length, 100, num_labels, 100).to(device)
+    model = NerModelLSTM(length, args.hidden_size, num_labels, args.hidden_size)
+    model.to(device)
 
     try:
         train(model, train_dataset, dev_dataset, test_dataset, args, log_recorder)
