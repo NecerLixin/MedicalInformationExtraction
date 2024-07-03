@@ -53,7 +53,7 @@ def eval(model:ClsModelBertSyntaxTree,dev_dataset,batch_size):
         
 
 
-def train(model:ClsModelBertSyntaxTree,train_dataset,dev_dataset,args,log_recorder:LogRecorder):
+def train(model:ClsModelBertSyntaxTree,train_dataset,dev_dataset,test_dataset,args,log_recorder:LogRecorder):
     criterion = nn.CrossEntropyLoss()
     optimizer = AdamW(model.parameters(),lr=args.lr)
     train_loader = DataLoader(train_dataset,
@@ -86,13 +86,14 @@ def train(model:ClsModelBertSyntaxTree,train_dataset,dev_dataset,args,log_record
             loss_list.append(loss.item())
             loss_total += loss.item()
             if step % len(train_loader) == 0:
-                f1 = eval(model,dev_dataset,args.batch_size)
-                log_recorder.add_log(step=step,loss=loss.item(),f1=f1)
-                if(f1 > best_f1):
+                dev_f1 = eval(model,dev_dataset,args.batch_size)
+                test_f1 = eval(model,test_dataset,args.batch_size)
+                log_recorder.add_log(step=step,loss=loss.item(),dev_f1=dev_f1)
+                if(dev_f1 > best_f1):
                     torch.save(model.state_dict(),args.save_path)
-                    log_recorder.best_score = {'f1':f1}
-                    best_f1 = f1
-                print(f"epoch:{epoch},f1:{f1},loss:{loss_total}")
+                    log_recorder.best_score = {'dev_f1':dev_f1,"test_f1":test_f1}
+                    best_f1 = dev_f1
+                print(f"epoch:{epoch},dev_f1:{dev_f1},test_f1:{test_f1},loss:{loss_total}")
             else:
                 log_recorder.add_log(step=step,loss=loss.item())
                 
@@ -108,6 +109,9 @@ def main():
     parser.add_argument("--save_path",type=str, default='model_save/model_cls.pth', help="Path to save model")
     parser.add_argument("--pretrained_model", type=str, default="bert-base-chinese", help="Pretrained bert model")
     parser.add_argument("--warmup_rate", type=float, default=0.06, help="Warm up rate.")
+    parser.add_argument("--train_data_path", type=str, default="nlp2024-data/dataset/small_train.json", help="File path of train dataset.")
+    parser.add_argument("--dev_data_path", type=str, default="nlp2024-data/dataset/small_dev.json", help="File path of dev dataset.")
+    parser.add_argument("--test_data_path", type=str, default="nlp2024-data/dataset/small_dev.json", help="File path of test dataset.")
     args = parser.parse_args()
     
     global device
@@ -124,9 +128,13 @@ def main():
     nlp = spacy.load('zh_core_web_lg')
     train_dataset = ClsDatasetBertSyntaxTree('nlp2024-data/dataset/small_train.json',tokenizer,nlp)
     dev_dataset = ClsDatasetBertSyntaxTree('nlp2024-data/dataset/small_dev.json',tokenizer,nlp)
-    train(model,train_dataset,dev_dataset,args,log_recorder)
-    time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_recorder.save(f'log/{time_str}.json')
+    try:
+        train(model,train_dataset,dev_dataset,args,log_recorder)
+    except Exception as e:
+        print(e)
+    finally:
+        time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_recorder.save(f'log/{time_str}.json')
     
 if __name__ == "__main__":
     main()
