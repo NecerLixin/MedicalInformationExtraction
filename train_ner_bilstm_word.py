@@ -105,7 +105,7 @@ def main():
     )
     parser.add_argument("--num_labels", type=int, default=11, help="Number of labels.")
     parser.add_argument(
-        "--device", type=str, default="cpu", help="Device used to training model"
+        "--device", type=str, default="cuda", help="Device used to training model"
     )
     parser.add_argument(
         "--save_path",
@@ -119,19 +119,19 @@ def main():
     parser.add_argument(
         "--train_data_path",
         type=str,
-        default="nlp2024-data/dataset/small_train.json",
+        default="nlp2024-data/dataset/train.json",
         help="File path of train dataset.",
     )
     parser.add_argument(
         "--dev_data_path",
         type=str,
-        default="nlp2024-data/dataset/small_dev.json",
+        default="nlp2024-data/dataset/dev.json",
         help="File path of dev dataset.",
     )
     parser.add_argument(
         "--test_data_path",
         type=str,
-        default="nlp2024-data/dataset/small_dev.json",
+        default="nlp2024-data/dataset/test.json",
         help="File path of test dataset.",
     )
     parser.add_argument(

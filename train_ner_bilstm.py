@@ -101,7 +101,7 @@ def main():
     )
     parser.add_argument("--num_labels", type=int, default=11, help="Number of labels.")
     parser.add_argument(
-        "--device", type=str, default="cpu", help="Device used to training model"
+        "--device", type=str, default="cuda", help="Device used to training model"
     )
     parser.add_argument(
         "--save_path",
