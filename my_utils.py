@@ -7,7 +7,7 @@ import config
 from datetime import datetime
 import pandas as pd
 import spacy
-
+import jieba
 device = config.Config.device
 
 label2id = json.load(open('meta/label2id.json',encoding='utf-8'))
@@ -50,13 +50,24 @@ class NERDatasetWithWord(NERDataset):
     
     def __getitem__(self, index) -> dict:
         sentence = self.data['sentences'][index]
+        words = jieba.lcut(sentence)
+        words = [word2id[w] if w in word2id else word2id['#'] for w in words ]
         characters = list(self.data['sentences'][index])
         characters = [char2id[c] for c in characters]
         length = len(characters)
         label = self.data['labels'][index]
         label = label.split()
         label = [label2id[c] for c in label]        
-        return {"characters":characters,"label":label,'length':length}
+        return {"characters":characters,"label":label,'length':length,'words':words}
+    
+    def collate_fn(batch):
+        len_list = [f['length'] for f in batch]
+        characters_max_len = max([len(f['characters']) for f in batch])
+        words_max_len = max([len(f['words']) for f in batch])
+        characters = [f['characters'] + (characters_max_len - len(f['characters']))*[char2id['#']] for f in batch]
+        words = [f['words'] + (words_max_len - len(f['words']))*[word2id['#']] for f in batch]
+        label = [s['label'] + (characters_max_len-len(s['label']))*[label2id['O']] for s in batch]
+        return characters,label,len_list, words
 
 class NERDatasetBert(NERDataset):
     def __init__(self, data_path,tokenizer:BertTokenizer) -> None:
