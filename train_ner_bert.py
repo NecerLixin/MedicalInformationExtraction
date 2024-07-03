@@ -153,13 +153,14 @@ def main():
         default="nlp2024-data/dataset/small_dev.json",
         help="File path of test dataset.",
     )
+    parser.add_argument("--info", type=str, default="NER bert+CRF model")
     args = parser.parse_args()
 
     global device
     device = torch.device(args.device)
 
     args_dict = vars(args)
-    log_recorder = LogRecorder(info="BERT+CRF", config=args_dict, verbose=False)
+    log_recorder = LogRecorder(info=args.info, config=args_dict, verbose=False)
 
     tokenizer = BertTokenizer.from_pretrained(args.pretrained_model)
     bert_model = BertModel.from_pretrained(args.pretrained_model).to(device)

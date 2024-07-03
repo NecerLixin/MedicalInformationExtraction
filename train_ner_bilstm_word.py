@@ -1,7 +1,7 @@
 import torch.utils
-from model import NerModelLSTM
+from model import NerModelLSTMWord
 import model
-from my_utils import NERDatasetBert, collate_fn, collate_fn_bert, NERDataset
+from my_utils import NERDatasetWithWord
 import torch
 from torch.utils.data import DataLoader, Dataset
 import torch.nn as nn
@@ -18,6 +18,10 @@ from my_utils import LogRecorder
 from datetime import datetime
 
 device = torch.device("cpu")
+char2id = json.load(open("meta/char2id.json"))
+word2id = json.load(open("meta/word2id.json"))
+label2id = json.load(open("meta/label2id.json"))
+collate_fn = NERDatasetWithWord.collate_fn
 
 
 def eval(model, dataset, args):
@@ -30,10 +34,10 @@ def eval(model, dataset, args):
 
     with torch.no_grad():
         for batch in dataloader:
-            inputs = torch.tensor(batch[0]).to(device)
-            targets = torch.tensor(batch[1]).to(device)
+            inputs = {"x_char": batch[0], "x_word": batch[1]}
+            targets = batch[2].to(device)
             len_list = batch[-1]
-            predictions = model(inputs)
+            predictions = model(**inputs)
             predicted_labels = torch.argmax(predictions, dim=-1)
             for l in range(len(len_list)):
                 all_predictions.append(
@@ -63,11 +67,11 @@ def train(model, train_dataset, dev_dataset, test_dataset, args, log_recorder):
         model.train()
         loss_total = 0
         for batch in train_loader:
-            train_x = torch.tensor(batch[0]).to(device)
-            train_y = torch.tensor(batch[1]).to(device)
+            inputs = {"x_char": batch[0], "x_word": batch[1]}
+            targets = batch[2].to(device)
             optimizer.zero_grad()
-            pre_y = model(train_x)
-            loss = -model.crf_layer.crf(pre_y, train_y)
+            pre_y = model(**inputs)
+            loss = -model.crf_layer.crf(pre_y, targets)
             loss.backward()
             loss_total += loss.item()
             optimizer.step()
@@ -130,25 +134,30 @@ def main():
         default="nlp2024-data/dataset/small_dev.json",
         help="File path of test dataset.",
     )
-    parser.add_argument("--info", type=str, default="NER LSTM base model.")
+    parser.add_argument(
+        "--info", type=str, default="NER LSTM model with word features."
+    )
     args = parser.parse_args()
     args_dict = vars(args)
 
     global device
     device = torch.device(args.device)
 
-    train_dataset = NERDataset(args.train_data_path)
-    dev_dataset = NERDataset(args.dev_data_path)
-    test_dataset = NERDataset(args.test_data_path)
-
-    with open("meta/char2id.json", "r", encoding="utf-8") as f:
-        data = json.load(f)
-        length = len(data)
-    with open("meta/label2id.json", "r", encoding="utf-8") as f:
-        Data = f.read()
-        num_labels = len(Data)
+    train_dataset = NERDatasetWithWord(args.train_data_path)
+    dev_dataset = NERDatasetWithWord(args.dev_data_path)
+    test_dataset = NERDatasetWithWord(args.test_data_path)
+    num_characters = len(char2id)
+    num_labels = len(label2id)
+    num_words = len(word2id)
     log_recorder = LogRecorder(info=args.info, config=args_dict, verbose=False)
-    model = NerModelLSTM(length, args.hidden_size, num_labels, args.hidden_size)
+
+    model = NerModelLSTMWord(
+        num_characters=num_characters,
+        num_words=num_words,
+        num_labels=num_labels,
+        hidden_size=args.hidden_size,
+        embedding_dim=args.hidden_size,
+    )
     model.to(device)
 
     try:

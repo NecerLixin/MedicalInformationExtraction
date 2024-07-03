@@ -88,9 +88,9 @@ class NERDatasetWithWord(NERDataset):
         ]
         return (
             torch.LongTensor(characters),
+            torch.tensor(words),
             torch.tensor(label),
             len_list,
-            torch.tensor(words),
         )
 
 

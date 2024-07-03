@@ -59,6 +59,12 @@ class NerModelLSTMWord(nn.Module):
             num_layers=2,
             bidirectional=True,
         )
+        self.lstm_word = nn.LSTM(
+            input_size=embedding_dim,
+            hidden_size=hidden_size,
+            num_layers=2,
+            bidirectional=True,
+        )
         self.q = nn.Linear(2 * hidden_size, hidden_size)
         self.k = nn.Linear(2 * hidden_size, hidden_size)
         self.v = nn.Linear(2 * hidden_size, 2 * hidden_size)
@@ -70,17 +76,19 @@ class NerModelLSTMWord(nn.Module):
     def forward(self, x_char, x_word):
         x_char = self.embedding_char(x_char).permute([1, 0, 2])
         x_word = self.embedding_word(x_word).permute([1, 0, 2])
-        out_char, _ = self.lstm_char(x_char).permute([1, 0, 2])  # [b, l, e]
-        out_word, _ = self.lstm_word(x_word).permute([1, 0, 2])  # [b, s, e]
+        out_char, _ = self.lstm_char(x_char)  # [b, l, e]
+        out_word, _ = self.lstm_word(x_word)  # [b, s, e]
+        out_char = out_char.permute([1, 0, 2])
+        out_word = out_word.permute([1, 0, 2])
         q = self.q(out_word)  # [b,l,e/2]
         k = self.k(out_char)  # [b,s,e/2]
         v = self.v(out_word)  # [b,l,e]
-        scale = torch.sqrt(self.hidden_size * 2)
+        scale = torch.sqrt(torch.tensor(self.hidden_size * 2)).to(q.device)
         attention = torch.einsum("ble,bse->bsl", q, k) / scale  # [b,s,l]
         residual = torch.einsum("bsl,ble->bse", attention, v)  # [b,s,e]
-        out_word = out_word + residual
-        out = self.fc(out)
-        return out
+        out_char = out_char + residual
+        out_char = self.fc(out_char)
+        return out_char
 
     def decode(self, emission):
         tag = self.crf_layer.decode(emission)
