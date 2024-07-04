@@ -18,7 +18,7 @@ from datetime import datetime
 from transformers import get_linear_schedule_with_warmup
 import spacy
 
-label2id = json.load(open("label2id.json", encoding="utf-8"))
+label2id = json.load(open("meta/label2id.json", encoding="utf-8"))
 device = None
 
 
@@ -35,15 +35,15 @@ def eval(model: ClsModelBertSyntaxTree, dev_dataset, batch_size):
             "attention_mask": batch[1].to(device),
             "edge_index_list": batch[3],
         }
+        symptom = batch[4].to(device)
         label = batch[2].to(device)
         # len_list = batch[-1]
         with torch.no_grad():
             output = model(**inputs)  # [b,m,3]
             # pred = model.decode(output)
         pred = torch.argmax(output, dim=-1)  # [b,m]
-        # for l in range(len(len_list)):
-        #     preds.append(pred[l][1:len_list[l]-1])
-        #     labels.append(label[l,1:len_list[l]-1].tolist())
+        pred = pred[symptom == True]
+        label = label[symptom == True]
         preds.append(pred.view(-1).tolist())
         labels.append(label.view(-1).tolist())
     preds = sum(preds, [])
@@ -98,7 +98,9 @@ def train(
             if step % len(train_loader) == 0:
                 dev_f1 = eval(model, dev_dataset, args.batch_size)
                 test_f1 = eval(model, test_dataset, args.batch_size)
-                log_recorder.add_log(step=step, loss=loss.item(), dev_f1=dev_f1)
+                log_recorder.add_log(
+                    step=step, loss=loss.item(), dev_f1=dev_f1, test_f1=test_f1
+                )
                 if dev_f1 > best_f1:
                     torch.save(model.state_dict(), args.save_path)
                     log_recorder.best_score = {"dev_f1": dev_f1, "test_f1": test_f1}
@@ -172,14 +174,11 @@ def main():
     model = ClsModelBertSyntaxTree(bert_model=bert_model, num_labels=args.num_labels)
     model.to(device)
     nlp = spacy.load("zh_core_web_lg")
-    train_dataset = ClsDatasetBertSyntaxTree(
-        "nlp2024-data/dataset/small_train.json", tokenizer, nlp
-    )
-    dev_dataset = ClsDatasetBertSyntaxTree(
-        "nlp2024-data/dataset/small_dev.json", tokenizer, nlp
-    )
+    train_dataset = ClsDatasetBertSyntaxTree(args.train_data_path, tokenizer, nlp)
+    dev_dataset = ClsDatasetBertSyntaxTree(args.dev_data_path, tokenizer, nlp)
+    test_dataset = ClsDatasetBertSyntaxTree(args.test_data_path, tokenizer, nlp)
     try:
-        train(model, train_dataset, dev_dataset, args, log_recorder)
+        train(model, train_dataset, dev_dataset, test_dataset, args, log_recorder)
     except Exception as e:
         print(e)
     finally:

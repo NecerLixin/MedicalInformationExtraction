@@ -34,7 +34,7 @@ def eval(model, dataset, args):
 
     with torch.no_grad():
         for batch in dataloader:
-            inputs = {"x_char": batch[0], "x_word": batch[1]}
+            inputs = {"x_char": batch[0].to(device), "x_word": batch[1].to(device)}
             targets = batch[2].to(device)
             len_list = batch[-1]
             predictions = model(**inputs)
@@ -50,7 +50,7 @@ def eval(model, dataset, args):
         all_predictions = np.array(all_predictions)
         all_targets = np.array(all_targets)
     f1 = f1_score(all_targets, all_predictions, average="micro")
-
+    model.train()
     return f1
 
 
@@ -67,7 +67,7 @@ def train(model, train_dataset, dev_dataset, test_dataset, args, log_recorder):
         model.train()
         loss_total = 0
         for batch in train_loader:
-            inputs = {"x_char": batch[0], "x_word": batch[1]}
+            inputs = {"x_char": batch[0].to(device), "x_word": batch[1].to(device)}
             targets = batch[2].to(device)
             optimizer.zero_grad()
             pre_y = model(**inputs)
@@ -98,7 +98,7 @@ def main():
     parser = argparse.ArgumentParser(description="Training a bert model.")
     parser.add_argument("--lr", type=float, default=5e-5, help="Learning rate.")
     parser.add_argument(
-        "--epochs", type=int, default=50, help="Number of training epochs."
+        "--epochs", type=int, default=20, help="Number of training epochs."
     )
     parser.add_argument(
         "--batch_size", type=int, default=24, help="Training batch size."

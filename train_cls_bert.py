@@ -33,12 +33,15 @@ def eval(model: ClsModelBertBase, dev_dataset, batch_size):
             "input_ids": batch[0].to(device),
             "attention_mask": batch[1].to(device),
         }
+        symptom = batch[3].to(device)
         label = batch[2].to(device)
         # len_list = batch[-1]
         with torch.no_grad():
             output = model(**inputs)  # [b,m,3]
             # pred = model.decode(output)
         pred = torch.argmax(output, dim=-1)  # [b,m]
+        pred = pred[symptom == True]
+        label = label[symptom == True]
         # for l in range(len(len_list)):
         #     preds.append(pred[l][1:len_list[l]-1])
         #     labels.append(label[l,1:len_list[l]-1].tolist())

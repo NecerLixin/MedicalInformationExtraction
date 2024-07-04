@@ -268,10 +268,12 @@ def collate_fn_cls_bert(batch):
         for f in batch
     ]
     labels = [f["label"] for f in batch]
+    symptom = [f["symptom"] for f in batch]
     return (
         torch.LongTensor(input_ids),
         torch.tensor(attention_mask),
         torch.tensor(labels),
+        torch.tensor(symptom),
         batch_len,
     )
 
@@ -286,11 +288,13 @@ def collate_fn_cls_bert_tree(batch):
     ]
     labels = [f["label"] for f in batch]
     edge_index_list = [f["syntax_tree"] for f in batch]
+    symptom = [f["symptom"] for f in batch]
     return (
         torch.LongTensor(input_ids),
         torch.tensor(attention_mask),
         torch.tensor(labels),
         edge_index_list,
+        torch.tensor(symptom),
         batch_len,
     )
 

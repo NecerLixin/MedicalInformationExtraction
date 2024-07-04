@@ -95,7 +95,7 @@ def train(
             if step % len(train_loader) == 0:
                 dev_f1 = eval(model, dev_dataset, args.batch_size)
                 test_f1 = eval(model, test_dataset, args.batch_size)
-                log_recorder.add_log(step=step, loss=loss.item(), dev_f1=dev_f1)
+                log_recorder.add_log(step=step, loss=loss.item(), dev_f1=dev_f1, test_f1=test_f1)
                 if dev_f1 > best_f1:
                     torch.save(model.state_dict(), args.save_path)
                     log_recorder.best_score = {"dev_f1": dev_f1, "test_f1": test_f1}
