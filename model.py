@@ -162,6 +162,35 @@ class ClsModelBertBase(nn.Module):
         return output
 
 
+class ClsModelBertBase2(nn.Module):
+    def __init__(
+        self, bert_model, hidden_size=768, num_symptoms=331, num_labels=3
+    ) -> None:
+        super().__init__()
+        self.bert_model = bert_model
+        self.hidden_size = hidden_size
+        self.cls = nn.Linear(hidden_size, num_labels)
+        self.symptom_matrix = nn.Parameter(torch.randn(num_symptoms, hidden_size))
+
+    def forward(
+        self,
+        input_ids,
+        attention_mask,
+    ):
+        embedding = self.bert_model(
+            input_ids=input_ids, attention_mask=attention_mask
+        ).last_hidden_state
+        # [batch, seq_len, emb]
+        embedding = embedding[:, 0, :]
+        # [batch,emb] 使用cls的 embedding 代表作为句子的 embedding
+        embedding = embedding.unsqueeze(dim=1)  # [b,1,e]
+        embedding = torch.tanh(
+            embedding * self.symptom_matrix.unsqueeze(dim=0)
+        )  # [b,1,e] * [1,m,e] = [b,m,e]
+        output = self.cls(embedding)  # [batch,num_labels]
+        return output
+
+
 class ClsModelBertSyntaxTree(nn.Module):
     def __init__(
         self, bert_model, hidden_size=768, num_symptoms=331, num_labels=3, gat_heads=4
@@ -192,12 +221,78 @@ class ClsModelBertSyntaxTree(nn.Module):
         embedding = embedding.split(split_sizes.tolist())  # [b,l,e]
         embedding = torch.stack(embedding, dim=0)
         embedding = self.trans(embedding)
-        embedding = embedding[
-            :, 0, :
-        ]  # [batch,emb] 使用cls的 embedding 代表作为句子的 embedding
+        embedding = embedding[:, 0, :]
+        # [batch,emb] 使用cls的 embedding 代表作为句子的 embedding
         embedding = embedding.unsqueeze(dim=1)  # [b,1,e]
         embedding = torch.tanh(
             embedding * self.symptom_matrix.unsqueeze(dim=0)
         )  # [b,1,e] * [1,m,e] = [b,m,e]
         output = self.cls(embedding)  # [batch,num_labels]
+        return output
+
+
+class ClsModelLSTM(nn.Module):
+    def __init__(
+        self, num_embeddings, embedding_dim, num_labels, hidden_size, num_symptoms
+    ):
+        super().__init__()
+        self.num_symptoms = num_symptoms
+        self.embedding = nn.Embedding(
+            num_embeddings=num_embeddings,
+            embedding_dim=embedding_dim,
+        )
+        self.lstm = nn.LSTM(
+            input_size=embedding_dim,
+            hidden_size=hidden_size,
+            num_layers=2,
+            bidirectional=True,
+        )
+        self.fc = nn.Linear(2 * hidden_size, num_labels)
+        self.symptom_matrix = nn.Parameter(torch.randn(num_symptoms, hidden_size * 2))
+
+        # [batch,len,emb]
+        # [len,batch,emb]
+
+    def forward(self, input_ids):
+        embedding = self.embedding(input_ids)
+        embedding = embedding.permute([1, 0, 2])
+        embedding, _ = self.lstm(embedding)
+        embedding = embedding.permute([1, 0, 2])
+        embedding = embedding[:, 0, :]
+        embedding = embedding.unsqueeze(dim=1)  # [b,1,e]
+        embedding = torch.tanh(embedding * self.symptom_matrix.unsqueeze(dim=0))
+        out = self.fc(embedding)
+        return out
+
+
+class NormModelBERT(nn.Module):
+    def __init__(
+        self, bert_model: BertModel, num_labels, hidden_size=768, offset=1
+    ) -> None:
+        super().__init__()
+        self.bert_model = bert_model
+        self.hidden_size = hidden_size
+        self.num_labels = num_labels
+        self.cls = nn.Linear(hidden_size, num_labels)
+        self.offset = offset
+
+    def forward(self, input_ids, attention_mask, entity_pos: list):
+        embedding = self.bert_model(
+            input_ids=input_ids, attention_mask=attention_mask
+        ).last_hidden_state
+        batch = input_ids.shape[0]
+        entity_embeddings = []
+        for i in range(batch):
+            entity_pos_i = entity_pos[i]
+            if len(entity_pos_i) > 0:
+                entity_pos_i = (
+                    torch.tensor(entity_pos[i]).to(input_ids.device) + self.offset
+                )
+                entity_pos_i = entity_pos_i[:, 0]
+                entity_embedding = torch.index_select(
+                    embedding[i], dim=0, index=entity_pos_i
+                )  # [m, e]
+                entity_embeddings.append(entity_embedding)
+        entity_embedding = torch.cat(entity_embeddings, dim=0)  # [n,e]
+        output = self.cls(entity_embedding)  # [n,3]
         return output
