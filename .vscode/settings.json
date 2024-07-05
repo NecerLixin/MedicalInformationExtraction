@@ -1,7 +1,11 @@
 {
-    "cSpell.ignoreWords": [],
+    "cSpell.ignoreWords": [
+        "tqdm",
+        "unsqueeze"
+    ],
     "cSpell.words": [
         "argmax",
-        "preds"
+        "preds",
+        "randn"
     ]
 }
