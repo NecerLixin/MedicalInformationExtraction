@@ -515,6 +515,60 @@ def collate_fn_bert(batch):
     )
 
 
+class BartDataset(Dataset):
+    def __init__(self, data_path, tokenizer, max_len):
+        super().__init__()
+        self.data_path = data_path
+        self.tokenizer = tokenizer
+        self.max_len = max_len
+        data = json.load(open(data_path))
+        self.data = self.data_process(data)
+
+    def data_process(self, data):
+        input_text = []
+        reports = []
+        for key, val in data.items():
+            dialogue = val["dialogue"]
+            dialogue_context = ""
+            for dia in dialogue:
+                dialogue_context += f"{dia['speaker']}：{dia['sentence']}\n"
+            input_text.append(val["self_report"] + dialogue_context)
+            report = val["report"][0]
+            report_context = [str(key) + ":" + str(report[key]) for key in report]
+            report_context = "|".join(report_context)
+            reports.append(report_context)
+
+        return {"input_texts": input_text, "target_texts": reports}
+
+    def __len__(self):
+        return len(self.data["input_texts"])
+
+    def __getitem__(self, index):
+        input_text = self.data["input_texts"][index]
+        target_text = self.data["target_texts"][index]
+        input_encoding = self.tokenizer(
+            input_text,
+            max_length=self.max_len,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
+        )
+        target_encoding = self.tokenizer(
+            target_text,
+            max_length=self.max_len,
+            padding="max_length",
+            truncation=True,
+            return_tensors="pt",
+        )
+        labels = target_encoding["input_ids"]
+        labels[labels == self.tokenizer.pad_token_id] = -100
+        return {
+            "input_ids": input_encoding["input_ids"].flatten(),
+            "attention_mask": input_encoding["attention_mask"].flatten(),
+            "labels": labels.flatten(),
+        }
+
+
 class LogRecorder:
     def __init__(self, info: str = None, config: dict = None, verbose: bool = False):
         self.info = info

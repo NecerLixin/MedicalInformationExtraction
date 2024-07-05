@@ -160,7 +160,7 @@ def main():
         default="nlp2024-data/dataset/small_dev.json",
         help="File path of test dataset.",
     )
-    parser.add_argument("--info", type=str, default="Classification bert base model.")
+    parser.add_argument("--info", type=str, default="Normalization model bert.")
     args = parser.parse_args()
 
     global device
