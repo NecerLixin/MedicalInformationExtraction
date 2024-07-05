@@ -8,6 +8,7 @@ from datetime import datetime
 import pandas as pd
 import spacy
 import jieba
+from tqdm import tqdm
 
 device = config.Config.device
 
@@ -157,7 +158,6 @@ class ClsDatasetBert(Dataset):
             "labels":[[0,1,2],[1],[0,1],...]
         }
         """
-
         sentences = []
         symptoms = []
         labels = []
@@ -213,6 +213,14 @@ class ClsDatasetBertSyntaxTree(ClsDatasetBert):
         super().__init__(path, tokenizer)
         self.nlp = nlp
         self.tokenizer = tokenizer
+        self.get_data()
+
+    def get_data(self):
+        sentences = self.data["sentences"]
+        syntax_trees = []
+        for sentence in tqdm(sentences, desc="Building syntax trees"):
+            syntax_trees.append(self.get_syntax_tree(sentence))
+        self.data["syntax_trees"] = syntax_trees
 
     def get_syntax_tree(self, text):
         doc = self.nlp(text)
@@ -248,7 +256,8 @@ class ClsDatasetBertSyntaxTree(ClsDatasetBert):
         symptom = self.data["symptoms"][index]
         label = self.data["labels"][index]
         label_len = len(label)
-        syntax_tree = self.get_syntax_tree(sentence)
+        # syntax_tree = self.get_syntax_tree(sentence)
+        syntax_tree = self.data["syntax_trees"][index]
         return {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
@@ -257,6 +266,184 @@ class ClsDatasetBertSyntaxTree(ClsDatasetBert):
             "label_len": label_len,
             "syntax_tree": syntax_tree,
         }
+
+
+class ClsDatasetLSTM(Dataset):
+    def __init__(self, data_path):
+        super().__init__()
+        self.data_path = data_path
+        data = json.load(open(data_path))  # 一个字典
+        self.data = self.data_process(data)
+
+    def data_process(self, data):
+        sentences = []
+        symptoms = []
+        labels = []
+        for key, val in data.items():
+            dialogues = val["dialogue"]
+            for dialogue in dialogues:
+                sentences.append(dialogue["sentence"])
+                symptom_ids = [symptom2id[s] for s in dialogue["symptom_norm"]]
+
+                symptom_vector = [0] * len(symptom2id)
+                symptom_label = [int(s) for s in dialogue["symptom_type"]]
+                symptom_tuple = [
+                    (symptom_ids[i], symptom_label[i])
+                    for i in range(len(symptom_label))
+                ]
+                symptom_tuple.sort(key=lambda x: x[0])
+                symptom_label_new = [0] * len(symptom2id)
+                for idx, tag in symptom_tuple:
+                    symptom_vector[idx] = 1
+                    symptom_label_new[idx] = tag
+                symptoms.append(symptom_vector)
+                labels.append(symptom_label_new)
+        return {"sentences": sentences, "symptoms": symptoms, "labels": labels}
+
+    def __len__(self):
+        return len(self.data["sentences"])
+
+    def __getitem__(self, index):
+        sentence = self.data["sentences"][index]
+        # tokens = self.tokenizer.tokenize(sentence)
+        tokens = list(sentence)
+        input_ids = [char2id[t] if t in char2id else char2id["#"] for t in tokens]
+        # input_ids = self.tokenizer.convert_tokens_to_ids(tokens)
+        # input_ids = self.tokenizer.build_inputs_with_special_tokens(input_ids)
+        length = len(input_ids)
+        attention_mask = [1.0] * len(input_ids)
+        symptom = self.data["symptoms"][index]
+        label = self.data["labels"][index]
+        label_len = len(label)
+
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "symptom": symptom,
+            "label": label,
+            "label_len": label_len,
+        }
+
+    def collate_fn(batch):
+        batch_len = [f["label_len"] for f in batch]
+        max_len = max([len(f["input_ids"]) for f in batch])
+        input_ids = [
+            f["input_ids"] + [char2id["#"]] * (max_len - len(f["input_ids"]))
+            for f in batch
+        ]
+        attention_mask = [
+            f["attention_mask"] + [0.0] * (max_len - len(f["attention_mask"]))
+            for f in batch
+        ]
+        labels = [f["label"] for f in batch]
+        symptom = [f["symptom"] for f in batch]
+        return (
+            torch.LongTensor(input_ids),
+            torch.tensor(attention_mask),
+            torch.tensor(labels),
+            torch.tensor(symptom),
+            batch_len,
+        )
+
+
+class NormDatasetBERT(Dataset):
+    def __init__(self, data_path, tokenizer):
+        super().__init__()
+        self.data_path = data_path
+        data = json.load(open(data_path, encoding="utf-8"))
+        self.tokenizer = tokenizer
+        self.data = self.data_process(data)
+
+    def data_process(self, data):
+        sentences = []
+        bio_labels = []
+        symptoms = []
+        entity_pos_list = []
+        input_ids_list = []
+        attention_mask_list = []
+        symptom_ids_list = []
+        for key, val in data.items():
+            dialogues = val["dialogue"]
+            for dialogue in dialogues:
+                sentence = dialogue["sentence"]
+                bio_label = dialogue["BIO_label"]
+                new_sentence, entity_pos = self.insert_asterisks(
+                    sentence, bio_label.split()
+                )
+                input_ids = self.tokenizer.convert_tokens_to_ids(new_sentence)
+                input_ids = self.tokenizer.build_inputs_with_special_tokens(input_ids)
+                attention_mask = [1.0] * len(input_ids)
+                input_ids_list.append(input_ids)
+                attention_mask_list.append(attention_mask)
+                entity_pos_list.append(entity_pos)
+                symptom_ids = [symptom2id[s] for s in dialogue["symptom_norm"]]
+                symptom_ids_list.append(symptom_ids)
+
+        return {
+            "input_ids_list": input_ids_list,
+            "attention_mask_list": attention_mask_list,
+            "symptom_ids_list": symptom_ids_list,
+            "entity_pos_list": entity_pos_list,
+        }
+
+    def __getitem__(self, index):
+        input_ids = self.data["input_ids_list"][index]
+        attention_mask = self.data["attention_mask_list"][index]
+        symptom_ids = self.data["symptom_ids_list"][index]
+        entity_pos = self.data["entity_pos_list"][index]
+        return {
+            "input_ids": input_ids,
+            "attention_mask": attention_mask,
+            "entity_pos": entity_pos,
+            "symptom_ids": symptom_ids,
+        }
+
+    def __len__(self):
+        return len(self.data["input_ids_list"])
+
+    def insert_asterisks(self, text, labels):
+        entity_pos = []
+        tokens = list(text)
+        new_tokens = []
+        i = 0
+        while i < len(tokens):
+            if labels[i] == "B-Symptom":
+                e = [len(new_tokens)]
+                new_tokens.append("*")
+                begin = i
+                end = i + 1
+                while end < len(tokens) and labels[end] == "I-Symptom":
+                    end += 1
+                e.append(e[0] + end - begin + 1)
+                entity_pos.append(e)
+                for j in range(begin, end):
+                    new_tokens.append(tokens[j])
+                new_tokens.append("*")
+                i = end - 1
+            else:
+                new_tokens.append(tokens[i])
+            i += 1
+        return new_tokens, entity_pos
+
+    def collate_fn(batch):
+        batch_len = [len(f["symptom_ids"]) for f in batch]
+        max_len = max([len(f["input_ids"]) for f in batch])
+        input_ids = [
+            f["input_ids"] + [0] * (max_len - len(f["input_ids"])) for f in batch
+        ]
+        attention_mask = [
+            f["attention_mask"] + [0.0] * (max_len - len(f["attention_mask"]))
+            for f in batch
+        ]
+        symptom_ids = [f["symptom_ids"] for f in batch]
+        entity_pos = [f["entity_pos"] for f in batch]
+        return (
+            torch.LongTensor(input_ids),
+            torch.tensor(attention_mask),
+            entity_pos,
+            symptom_ids,
+            batch_len,
+        )
 
 
 def collate_fn_cls_bert(batch):

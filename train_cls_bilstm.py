@@ -1,8 +1,8 @@
 import torch.utils
-from my_utils import ClsDatasetBertSyntaxTree, collate_fn_cls_bert_tree
+from my_utils import ClsDatasetLSTM
 import torch
 from torch.utils.data import DataLoader, Dataset
-from model import ClsModelBertSyntaxTree
+from model import ClsModelLSTM
 import torch.nn as nn
 from torch.optim import AdamW
 from torchmetrics import F1Score
@@ -16,15 +16,15 @@ import argparse
 from my_utils import LogRecorder
 from datetime import datetime
 from transformers import get_linear_schedule_with_warmup
-import spacy
 
 label2id = json.load(open("meta/label2id.json", encoding="utf-8"))
+char2id = json.load(open("meta/char2id.json", encoding="utf-8"))
 device = None
 
 
-def eval(model: ClsModelBertSyntaxTree, dev_dataset, batch_size):
+def eval(model: ClsModelLSTM, dev_dataset, batch_size):
     dev_loader = DataLoader(
-        dev_dataset, batch_size=batch_size, collate_fn=collate_fn_cls_bert_tree
+        dev_dataset, batch_size=batch_size, collate_fn=ClsDatasetLSTM.collate_fn
     )
     model.eval()
     preds = []
@@ -32,10 +32,9 @@ def eval(model: ClsModelBertSyntaxTree, dev_dataset, batch_size):
     for batch in dev_loader:
         inputs = {
             "input_ids": batch[0].to(device),
-            "attention_mask": batch[1].to(device),
-            "edge_index_list": batch[3],
+            # "attention_mask": batch[1].to(device),
         }
-        symptom = batch[4].to(device)
+        symptom = batch[3].to(device)
         label = batch[2].to(device)
         # len_list = batch[-1]
         with torch.no_grad():
@@ -44,6 +43,9 @@ def eval(model: ClsModelBertSyntaxTree, dev_dataset, batch_size):
         pred = torch.argmax(output, dim=-1)  # [b,m]
         pred = pred[symptom == True]
         label = label[symptom == True]
+        # for l in range(len(len_list)):
+        #     preds.append(pred[l][1:len_list[l]-1])
+        #     labels.append(label[l,1:len_list[l]-1].tolist())
         preds.append(pred.view(-1).tolist())
         labels.append(label.view(-1).tolist())
     preds = sum(preds, [])
@@ -51,11 +53,12 @@ def eval(model: ClsModelBertSyntaxTree, dev_dataset, batch_size):
     preds = np.array(preds)
     labels = np.array(labels)
     f1 = f1_score(labels, preds, average="micro")
+    model.train()
     return f1
 
 
 def train(
-    model: ClsModelBertSyntaxTree,
+    model: ClsModelLSTM,
     train_dataset,
     dev_dataset,
     test_dataset,
@@ -65,7 +68,7 @@ def train(
     criterion = nn.CrossEntropyLoss()
     optimizer = AdamW(model.parameters(), lr=args.lr)
     train_loader = DataLoader(
-        train_dataset, batch_size=args.batch_size, collate_fn=collate_fn_cls_bert_tree
+        train_dataset, batch_size=args.batch_size, collate_fn=ClsDatasetLSTM.collate_fn
     )
     total_step = len(train_loader) / args.batch_size * args.epochs
     # scheduler = get_linear_schedule_with_warmup(optimizer=optimizer,
@@ -81,11 +84,9 @@ def train(
         for batch in tqdm(train_loader, desc="Training"):
             inputs = {
                 "input_ids": batch[0].to(device),
-                "attention_mask": batch[1].to(device),
-                "edge_index_list": batch[3],
             }
             label = batch[2].to(device)  # [b,m]
-            symptom = batch[4].to(device)
+            symptom = batch[3].to(device)
             optimizer.zero_grad()
             output = model(**inputs)
             if symptom.sum() > 0:
@@ -94,8 +95,6 @@ def train(
                 loss = criterion(output.view(-1, args.num_labels), label.view(-1))
                 loss.backward()
                 optimizer.step()
-            # loss = F.cross_entropy(output.view(-1,num_labels),label.view(-1),model.crf_layer.transitions)
-            # loss = -model.crf_layer.crf(output,label)
             # loss = criterion(output.view(-1, args.num_labels), label.view(-1))
             # loss.backward()
             # optimizer.step()
@@ -105,9 +104,7 @@ def train(
             if step % len(train_loader) == 0:
                 dev_f1 = eval(model, dev_dataset, args.batch_size)
                 test_f1 = eval(model, test_dataset, args.batch_size)
-                log_recorder.add_log(
-                    step=step, loss=loss.item(), dev_f1=dev_f1, test_f1=test_f1
-                )
+                log_recorder.add_log(step=step, loss=loss.item(), dev_f1=dev_f1)
                 if dev_f1 > best_f1:
                     torch.save(model.state_dict(), args.save_path)
                     log_recorder.best_score = {"dev_f1": dev_f1, "test_f1": test_f1}
@@ -123,21 +120,21 @@ def train(
 
 def main():
     parser = argparse.ArgumentParser(description="Training a bert model.")
-    parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate.")
+    parser.add_argument("--lr", type=float, default=5e-4, help="Learning rate.")
     parser.add_argument(
-        "--epochs", type=int, default=20, help="Number of training epochs."
+        "--epochs", type=int, default=30, help="Number of training epochs."
     )
     parser.add_argument(
         "--batch_size", type=int, default=24, help="Training batch size."
     )
     parser.add_argument("--num_labels", type=int, default=3, help="Number of labels.")
     parser.add_argument(
-        "--device", type=str, default="cuda", help="Device used to training model"
+        "--device", type=str, default="cpu", help="Device used to training model"
     )
     parser.add_argument(
         "--save_path",
         type=str,
-        default="model_save/model_cls_bert_tree.pth",
+        default="model_save/model_cls.pth",
         help="Path to save model",
     )
     parser.add_argument(
@@ -165,9 +162,7 @@ def main():
         default="nlp2024-data/dataset/small_dev.json",
         help="File path of test dataset.",
     )
-    parser.add_argument(
-        "--info", type=str, default="Classification bert model with syntax tree."
-    )
+    parser.add_argument("--info", type=str, default="Classification bert base model.")
     args = parser.parse_args()
 
     global device
@@ -176,14 +171,19 @@ def main():
     args_dict = vars(args)
     log_recorder = LogRecorder(info=args.info, config=args_dict, verbose=False)
 
-    tokenizer = BertTokenizer.from_pretrained(args.pretrained_model)
-    bert_model = BertModel.from_pretrained(args.pretrained_model).to(device)
-    model = ClsModelBertSyntaxTree(bert_model=bert_model, num_labels=args.num_labels)
+    # tokenizer = BertTokenizer.from_pretrained(args.pretrained_model)
+    # bert_model = BertModel.from_pretrained(args.pretrained_model).to(device)
+    model = ClsModelLSTM(
+        num_embeddings=len(char2id),
+        embedding_dim=100,
+        num_labels=args.num_labels,
+        hidden_size=100,
+        num_symptoms=331,
+    )
     model.to(device)
-    nlp = spacy.load("zh_core_web_lg")
-    train_dataset = ClsDatasetBertSyntaxTree(args.train_data_path, tokenizer, nlp)
-    dev_dataset = ClsDatasetBertSyntaxTree(args.dev_data_path, tokenizer, nlp)
-    test_dataset = ClsDatasetBertSyntaxTree(args.test_data_path, tokenizer, nlp)
+    train_dataset = ClsDatasetLSTM(args.train_data_path)
+    dev_dataset = ClsDatasetLSTM(args.dev_data_path)
+    test_dataset = ClsDatasetLSTM(args.test_data_path)
     try:
         train(model, train_dataset, dev_dataset, test_dataset, args, log_recorder)
     except Exception as e:

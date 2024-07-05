@@ -52,6 +52,7 @@ def eval(model: ClsModelBertBase, dev_dataset, batch_size):
     preds = np.array(preds)
     labels = np.array(labels)
     f1 = f1_score(labels, preds, average="micro")
+    model.train()
     return f1
 
 
