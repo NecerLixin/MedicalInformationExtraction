@@ -7,6 +7,7 @@ import torch
 import argparse
 from rouge_score import rouge_scorer
 from datetime import datetime
+from tqdm import tqdm
 
 device = None
 
@@ -72,9 +73,10 @@ def train(
         num_warmup_steps=0,
         num_training_steps=num_training_steps,
     )
-    progress_bar = tqdm(range(num_training_steps))
+    # progress_bar = tqdm(range(num_training_steps))
     for epoch in range(num_epochs):
-        for batch in train_dataloader:
+        loss_total = 0
+        for batch in tqdm(train_dataloader, desc="Training"):
             batch = {k: v.to(device) for k, v in batch.items()}
             outputs = model(**batch)
             loss = outputs.loss
@@ -82,7 +84,9 @@ def train(
             optimizer.step()
             lr_scheduler.step()
             optimizer.zero_grad()
-            progress_bar.update(1)
+            loss_total += loss.item()
+            # progress_bar.update(1)
+        print(f"epoch:{epoch+1},loss:{loss_total}")
         rouge1, rouge2, rougeL = eval(model, dev_dataset, tokenizer, args)
         log_recorder.add_log(dev_rouge1=rouge1, dev_rouge2=rouge2, dev_rougeL=rougeL)
         rouge1, rouge2, rougeL = eval(model, test_dataset, tokenizer, args)
@@ -101,7 +105,7 @@ def main():
         "--batch_size", type=int, default=1, help="Training batch size."
     )
     parser.add_argument(
-        "--max_len", type=int, default=512, help="Max length of input text."
+        "--max_len", type=int, default=1024, help="Max length of input text."
     )
     parser.add_argument(
         "--device", type=str, default="cpu", help="Device used to training model"
@@ -147,6 +151,7 @@ def main():
 
     tokenizer = BertTokenizer.from_pretrained(args.pretrained_model)
     model = BartForConditionalGeneration.from_pretrained(args.pretrained_model)
+    model.to(device)
     log_recorder = LogRecorder(info=args.info, config=args_dict, verbose=False)
 
     train_dataset = BartDataset(args.train_data_path, tokenizer, args.max_len)
