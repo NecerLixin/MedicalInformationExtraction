@@ -86,13 +86,17 @@ def train(
                 "attention_mask": batch[1].to(device),
             }
             label = batch[2].to(device)  # [b,m]
+            symptom = batch[3].to(device)
             optimizer.zero_grad()
             output = model(**inputs)
             # loss = F.cross_entropy(output.view(-1,num_labels),label.view(-1),model.crf_layer.transitions)
             # loss = -model.crf_layer.crf(output,label)
-            loss = criterion(output.view(-1, args.num_labels), label.view(-1))
-            loss.backward()
-            optimizer.step()
+            if symptom.sum() > 0:
+                output = output[symptom == True]
+                label = label[symptom == True]
+                loss = criterion(output.view(-1, args.num_labels), label.view(-1))
+                loss.backward()
+                optimizer.step()
             # scheduler.step()
             loss_list.append(loss.item())
             loss_total += loss.item()
