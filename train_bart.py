@@ -8,6 +8,7 @@ import argparse
 from rouge_score import rouge_scorer
 from datetime import datetime
 from tqdm import tqdm
+import jieba
 
 device = None
 
@@ -16,7 +17,10 @@ def compute_rouge(preds, labels):
     scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
     rouge1, rouge2, rougeL = 0, 0, 0
     for pred, label in zip(preds, labels):
-        scores = scorer.score(label, pred)
+        scores = scorer.score(
+            " ".join(jieba.lcut("".join(label.split()))),
+            " ".join(jieba.lcut("".join(pred.split()))),
+        )
         rouge1 += scores["rouge1"].fmeasure
         rouge2 += scores["rouge2"].fmeasure
         rougeL += scores["rougeL"].fmeasure
@@ -33,7 +37,7 @@ def eval(model, dev_dataset, tokenizer, args):
         for batch in val_dataloader:  # val_dataloader 是验证集的DataLoader
             batch = {k: v.to(device) for k, v in batch.items()}
             outputs = model.generate(
-                batch["input_ids"], max_length=512, num_beams=5, early_stopping=True
+                batch["input_ids"], max_length=512, num_beams=2, early_stopping=True
             )
             preds.extend(
                 [
@@ -157,22 +161,30 @@ def main():
     train_dataset = BartDataset(args.train_data_path, tokenizer, args.max_len)
     dev_dataset = BartDataset(args.dev_data_path, tokenizer, args.max_len)
     test_dataset = BartDataset(args.test_data_path, tokenizer, args.max_len)
-
-    try:
-        train(
-            model,
-            train_dataset,
-            dev_dataset,
-            test_dataset,
-            tokenizer,
-            args,
-            log_recorder,
-        )
-    except Exception as e:
-        print(e)
-    finally:
-        time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
-        log_recorder.save(f"log/{time_str}.json")
+    train(
+        model,
+        train_dataset,
+        dev_dataset,
+        test_dataset,
+        tokenizer,
+        args,
+        log_recorder,
+    )
+    # try:
+    #     train(
+    #         model,
+    #         train_dataset,
+    #         dev_dataset,
+    #         test_dataset,
+    #         tokenizer,
+    #         args,
+    #         log_recorder,
+    #     )
+    # except Exception as e:
+    #     print(e)
+    # finally:
+    #     time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    #     log_recorder.save(f"log/{time_str}.json")
 
 
 if __name__ == "__main__":
