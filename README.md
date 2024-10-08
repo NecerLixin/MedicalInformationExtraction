@@ -41,22 +41,19 @@
 
     补充损失函数计算：
     损失函数根据最大似然，采取最小化条件概率负对数的方法计算，CRF是一种判别模型，用于直接建模输出序列$y$在给定舒序列$x$的条件概率$P(y|x)$，这个条件概率可以写成：
-        ```math
-            P(y|x) = \frac{\exp{(\text{score}(\mathbf{x},y))}}{Z(x)}
-        ```
+        $$P(y|x) = \frac{\exp{(\text{score}(\mathbf{x},y))}}{Z(x)}$$
 
     其中：
       - $\text{score}(x,y)$ 是输入序列于目标标签的总得分。
       - $Z(x)$ 是归一化因子，用来确保所有可能的序列标签的概率之和为1。
       - $Z(x)$的计算公式如下：
-        ```math
-            Z(x) = \sum_{z'\in z} \exp{\text{score}(\mathbf{x},z')}
-        ```
+  
+        $$Z(x) = \sum_{z'\in z} \exp{\text{score}(\mathbf{x},z')}$$
       - $z$是所有可能的序列标签的集合。
 
     对于一个序列，它的损失函数计算公式如下：
-    ```math
-        \begin{aligned}
+
+    $$\begin{aligned}
             \mathcal{L} &= -\log(P(\mathbf{x},y)) \\
             &= -\log \left(\frac{\exp{(\text{score}(\text{x},y))}}{Z(x)}\right) \\
             &= -\left(\text{score}(\text{x},y) - \log(Z(\mathbf{x})\right) \\
@@ -64,8 +61,7 @@
             + \sum_{i=1}^{n-1}T_{z_i,z_{i+1}}
             - \log \sum_{z'\in z} \exp(\text{score}(\mathbf{x},z'))
             \right )
-        \end{aligned}
-    ```
+        \end{aligned}$$
 
     穷举所有的可能序列计算分数复杂度很高，可以通过转移的方式计算$Z(\mathbf{x})$，具体推导过程见CSDN [BiLSTM中的CRF层（三）CRF损失函数](https://blog.csdn.net/u013963380/article/details/108696552)
 
@@ -73,29 +69,22 @@
    前面的模型之使用了字符级别的特征，在这个模型中，还是使用了词级别的特征并且通过注意力机制融合两种特征。
    具体模型设计如下：
    - 字符/词分割
-    ```math
-        \mathbf{x} = \text{CharSplit}(\text{text}) = [x_1,x_2,\cdots] \\
-        \mathbf{c} = \text{WordSplit}(\text{text}) = [c_1,c_2,\cdots]
-    ```
+    $$\mathbf{x} = \text{CharSplit}(\text{text}) = [x_1,x_2,\cdots] \\
+        \mathbf{c} = \text{WordSplit}(\text{text}) = [c_1,c_2,\cdots]$$
 
    - 序列编码
-    ```math
-        H_x = \text{LSTM}(\text{Embedding}(\textbf{x})) \in \mathbb{R}^{l \times d} \\
-        H_c = \text{LSTM}(\text{Embedding}(\textbf{c})) \in \mathbb{R}^{s\times d}  
-    ```
+    $$H_x = \text{LSTM}(\text{Embedding}(\textbf{x})) \in \mathbb{R}^{l \times d} \\
+        H_c = \text{LSTM}(\text{Embedding}(\textbf{c})) \in \mathbb{R}^{s\times d}$$
 
    - 注意力融合
-    ```math
-        Q =  W_QH_c^T \in \mathbb{R}^{s \times d} \\
+    $$Q =  W_QH_c^T \in \mathbb{R}^{s \times d} \\
         K =  W_KH_x^T \in \mathbb{R}^{l \times d} \\
         V=W_VH_c^T \in \mathbb{R}^{s \times d} \\
-        H_x' = H_x+\text{softmax}(\frac{KQ^T}{\sqrt{d}})V
-    ```
+        H_x' = H_x+\text{softmax}(\frac{KQ^T}{\sqrt{d}})V$$
 
     - 线性层分类
-    ```math
-        y = H_x'W + b
-    ```
+  
+    $$y = H_x'W + b$$
 
     - CRF解码
     同前
