@@ -1,3 +1,5 @@
 *.bin
 *.pth
 *2024*.json
+.idea
+.vscode
