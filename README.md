@@ -12,6 +12,58 @@
 - 医疗报告生成：
   依据病人和医患的对话，输出具有规定格式的医疗报告。
 
+```
+.
+├── README.md                   # README文件
+├── img                         # README图片资源
+│   ├── dialogue.png            
+│   ├── formula_crf_loss.png
+│   ├── formula_z_start.png
+│   ├── report.png
+│   ├── sample_input.png
+│   ├── sample_output.png
+│   ├── sample_target.png
+│   └── syntaxtree.png
+├── meta                        # 元数据
+│   ├── char2id.json            # 字符编号
+│   ├── label2id.json           # 标签编号
+│   └── word2id.json            # 词编号
+├── model.py                    # 所有的模型均在这个文件里面
+├── model_save/                 # 模型保存文件夹
+├── my_utils.py                 # 工具类，数据加载类
+├── nlp2024-data                # 数据集文件夹
+│   └── dataset                 
+│       ├── data_process.ipynb  # 数据处理代码
+│       ├── dev.json            # 验证集
+│       ├── small_dev.json      # 小的验证集，本地测试用
+│       ├── small_train.json    # 小测试集
+│       ├── symptom_norm.csv    # 标准化症状
+│       ├── test.json           # 测试集
+│       └── train.json          # 训练集
+├── normalize.py                # Word2Vec实体标准化
+├── pretrained_model            # 预训练模型文件夹
+├── scripts                     # 训练脚本
+│   ├── bart.sh                 # BART训练脚本
+│   ├── cls_bert.sh             # BERT症状识别训练脚本
+│   ├── cls_bert_syntax_tree.sh # BERT句法树症状识别训练脚本
+│   ├── cls_bilstm.sh           # LSTM症状识别脚本
+│   ├── ner_bert.sh             # BERT命名实体识别脚本
+│   ├── ner_bilistm_word.sh     # LSTM+word feature
+│   ├── ner_bilstm.sh           # LSTM命名实体识别
+│   └── norm_bert.sh            # BERT实体标准化
+├── temp.json
+├── test.txt
+├── train_Word2Vec.py           # Word2Vec训练
+├── train_bart.py               # 医疗报告生成
+├── train_cls_bert.py           # BERT症状识别
+├── train_cls_bert_tree.py      # BERT句法树症状识别
+├── train_cls_bilstm.py         # LSTM症状识别
+├── train_ner_bert.py           # BERT NER
+├── train_ner_bilstm.py         # LSTM NER
+├── train_ner_bilstm_word.py    # LSTM word NER
+└── train_norm_bert.py          # BERT实体标准化
+```
+
 ## 2 内容
 ### 2.1 命名试题识别（NER）
 该任务是一个序列标注问题，主要包括五类医疗相关实体，包括：症状、药品名、药物类别、检查和操作。采用`BIO`标注体系，其中`B`和`I`标签后面跟随有实体类型。
