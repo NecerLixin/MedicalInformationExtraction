@@ -21,45 +21,42 @@
    LSTM加CRF是NLP中序列标注的基本模型，LSTM为一个编码器，CRF为解码算法。
    具体模型结构如下：
    - 序列编码
-    $$
-        \mathbf{x}=[x_1,x_2,x_3,\cdots],\\
-        H = \text{LSTM}(\text{Embedding}(\mathbf{x})) = [h_1, h_2, \cdots]
-    $$
+     
+     $$\mathbf{x}=[x_1,x_2,x_3,\cdots],\\
+     H = \text{LSTM}(\text{Embedding}(\mathbf{x})) = [h_1, h_2, \cdots]$$
+
    - 线性层分类
-    $$
-        y = HW + b
-    $$
+     
+     $$y = HW + b$$
    - 输入CRF层
     CRF层的原理：
     在CRF中有一个发射矩阵和一个转移矩阵，发射矩阵是隐藏状态到观察状态的概率得分，转移矩阵是前一个观察状态转移到后一个观察状态的概率得分。对于一个序列和指定的目标标签，这个序列的得分计算公式如下：
-    $$
-    \text{score}(\mathbf{x},z) = \sum_{i=1}^n{y_{x_i,z_i}} + \sum_{i=1}^{n-1}{T_{z_i,z_{i+1}}}
-    $$
-    其中$y_{x_i,z_i}$是隐藏状态$x_i$转移到观察状态$z_i$的得分，可以由之前的线性层的输出结果得到。$T_{z_i,z_{i+1}}$是转移矩阵中的第 $i$个观察状态转移到第$i+1$个状态的概率得分。
+
+    $$\text{score}(\mathbf{x},z) = \sum_{i=1}^n{y_{x_i,z_i}} + \sum_{i=1}^{n-1}{T_{z_i,z_{i+1}}}$$
+   
+    $y_{x_i,z_i}$是隐藏状态 $x_i$ 转移到观察状态 $z_i$的得分，可以由之前的线性层的输出结果得到。 $T_{z_i,z_{i+1}}$是转移矩阵中的第 $i$个观察状态转移到第 $i+1$个状态的概率得分。
     发射矩阵就是通过LSTM编码后的向量经过线性层得到的结果，转移矩阵是CRF中待学习的参数。
     最后经过维特比解码算法求解：
-    $$
-    z^* = \argmax_z \text{score}(\mathbf{x},z)
-    $$
 
+     $$z^* = \arg \max_z \text{score}(\mathbf{x},z)$$
+   
     补充损失函数计算：
-    损失函数根据最大似然，采取最小化条件概率负对数的方法计算，CRF是一种判别模型，用于直接建模输出序列$y$在给定舒序列$x$的条件概率$P(y|x)$，这个条件概率可以写成：
-    $$
-        P(y|x) = \frac{\exp{(\text{score}(\mathbf{x},y))}}{Z(x)}
-    $$
-
+    损失函数根据最大似然，采取最小化条件概率负对数的方法计算，CRF是一种判别模型，用于直接建模输出序列 $y$ 在给定舒序列 $x$ 的条件概率 $P(y|x)$ ，这个条件概率可以写成：
+   
+    $$P(y|x) = \frac{\exp{(\text{score}(\mathbf{x},y))}}{Z(x)}$$
+   
     其中：
       - $\text{score}(x,y)$ 是输入序列于目标标签的总得分。
       - $Z(x)$ 是归一化因子，用来确保所有可能的序列标签的概率之和为1。
       - $Z(x)$的计算公式如下：
-        $$
-            Z(x) = \sum_{z'\in z} \exp{\text{score}(\mathbf{x},z')}
-        $$
-        $z$是所有可能的序列标签的集合。
+  
+        $$Z(x) = \sum_{z'\in z} \exp{\text{score}(\mathbf{x},z')}$$
+      - $z$是所有可能的序列标签的集合。
 
     对于一个序列，它的损失函数计算公式如下：
-    $$
-        \begin{aligned}
+    <img src="img/formula_crf_loss.png" alt="CRF损失函数" heigth="50%">
+    <!-- ```math
+    \begin{aligned}
             \mathcal{L} &= -\log(P(\mathbf{x},y)) \\
             &= -\log \left(\frac{\exp{(\text{score}(\text{x},y))}}{Z(x)}\right) \\
             &= -\left(\text{score}(\text{x},y) - \log(Z(\mathbf{x})\right) \\
@@ -68,42 +65,44 @@
             - \log \sum_{z'\in z} \exp(\text{score}(\mathbf{x},z'))
             \right )
         \end{aligned}
-    $$
+    ``` -->
 
     穷举所有的可能序列计算分数复杂度很高，可以通过转移的方式计算$Z(\mathbf{x})$，具体推导过程见CSDN [BiLSTM中的CRF层（三）CRF损失函数](https://blog.csdn.net/u013963380/article/details/108696552)
 
-2. **Bi-LSTM + word-level feature + CRF** 
+3. **Bi-LSTM + word-level feature + CRF** 
    前面的模型之使用了字符级别的特征，在这个模型中，还是使用了词级别的特征并且通过注意力机制融合两种特征。
    具体模型设计如下：
    - 字符/词分割
-    $$
-        \mathbf{x} = \text{CharSplit}(\text{text}) = [x_1,x_2,\cdots] \\
-        \mathbf{c} = \text{WordSplit}(\text{text}) = [c_1,c_2,\cdots]
-    $$
+     
+     $$\mathbf{x} = \text{CharSplit}(\text{text}) = [x_1,x_2,\cdots]$$
+   
+     $$\mathbf{c} = \text{WordSplit}(\text{text}) = [c_1,c_2,\cdots]$$
 
    - 序列编码
-    $$
-        H_x = \text{LSTM}(\text{Embedding}(\textbf{x})) \in \mathbb{R}^{l \times d} \\
-        H_c = \text{LSTM}(\text{Embedding}(\textbf{c})) \in \mathbb{R}^{s\times d}  
-    $$
+     
+     $$H_x = \text{LSTM}(\text{Embedding}(\textbf{x})) \in \mathbb{R}^{l \times d}$$
+
+     $$H_c = \text{LSTM}(\text{Embedding}(\textbf{c})) \in \mathbb{R}^{s\times d}$$
 
    - 注意力融合
-    $$
-        Q =  W_QH_c^T \in \mathbb{R}^{s \times d} \\
-        K =  W_KH_x^T \in \mathbb{R}^{l \times d} \\
-        V=W_VH_c^T \in \mathbb{R}^{s \times d} \\
-        H_x' = H_x+\text{softmax}(\frac{KQ^T}{\sqrt{d}})V
-    $$
+     
+     $$Q =  W_QH_c^T \in \mathbb{R}^{s \times d}$$
+     
+     $$K =  W_KH_x^T \in \mathbb{R}^{l \times d}$$
+     
+     $$V=W_VH_c^T \in \mathbb{R}^{s \times d} $$
+     
+     $$H_x' = H_x+\text{softmax}(\frac{KQ^T}{\sqrt{d}})V$$
 
-    - 线性层分类
-    $$
-        y = H_x'W + b
-    $$
+   - 线性层分类
+  
+     $$y = H_x'W + b$$
 
-    - CRF解码
-    同前
+   - CRF解码
+     
+     同前
 
-3. **BERT + CRF**
+5. **BERT + CRF**
    同第一个，将编码器换成了BERT。
 
 所有的模型均在model.py文件中，三个模型分别对应`NerModelLSTM`，`NerModelLSTMWord`，`NerModelBert`。
