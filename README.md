@@ -22,28 +22,22 @@
    具体模型结构如下：
    - 序列编码
      
-        ```math
-            \mathbf{x}=[x_1,x_2,x_3,\cdots],\\
-            H = \text{LSTM}(\text{Embedding}(\mathbf{x})) = [h_1, h_2, \cdots]
-        ```
+     $$\mathbf{x}=[x_1,x_2,x_3,\cdots],\\
+     H = \text{LSTM}(\text{Embedding}(\mathbf{x})) = [h_1, h_2, \cdots]$$
 
    - 线性层分类
-        ```math
-            y = HW + b
-        ```
-
+     
+     $$y = HW + b$$
    - 输入CRF层
     CRF层的原理：
     在CRF中有一个发射矩阵和一个转移矩阵，发射矩阵是隐藏状态到观察状态的概率得分，转移矩阵是前一个观察状态转移到后一个观察状态的概率得分。对于一个序列和指定的目标标签，这个序列的得分计算公式如下：
-        ```math
-            \text{score}(\mathbf{x},z) = \sum_{i=1}^n{y_{x_i,z_i}} + \sum_{i=1}^{n-1}{T_{z_i,z_{i+1}}}
-        ```
+    $$\text{score}(\mathbf{x},z) = \sum_{i=1}^n{y_{x_i,z_i}} + \sum_{i=1}^{n-1}{T_{z_i,z_{i+1}}}$$
+
         其中$y_{x_i,z_i}$是隐藏状态$x_i$转移到观察状态$z_i$的得分，可以由之前的线性层的输出结果得到。$T_{z_i,z_{i+1}}$是转移矩阵中的第 $i$个观察状态转移到第$i+1$个状态的概率得分。
     发射矩阵就是通过LSTM编码后的向量经过线性层得到的结果，转移矩阵是CRF中待学习的参数。
     最后经过维特比解码算法求解：
-        ```math
-        z^* = \argmax_z \text{score}(\mathbf{x},z)
-        ```
+
+     $$z^* = \arg \max_z \text{score}(\mathbf{x},z)$$
 
     补充损失函数计算：
     损失函数根据最大似然，采取最小化条件概率负对数的方法计算，CRF是一种判别模型，用于直接建模输出序列$y$在给定舒序列$x$的条件概率$P(y|x)$，这个条件概率可以写成：
