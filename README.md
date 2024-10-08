@@ -54,8 +54,8 @@
       - $z$是所有可能的序列标签的集合。
 
     对于一个序列，它的损失函数计算公式如下：
-
-    ```math
+    <img src="img/formula_crf_loss.png" alt="CRF损失函数" heigth="50%">
+    <!-- ```math
     \begin{aligned}
             \mathcal{L} &= -\log(P(\mathbf{x},y)) \\
             &= -\log \left(\frac{\exp{(\text{score}(\text{x},y))}}{Z(x)}\right) \\
@@ -65,7 +65,7 @@
             - \log \sum_{z'\in z} \exp(\text{score}(\mathbf{x},z'))
             \right )
         \end{aligned}
-    ```
+    ``` -->
 
     穷举所有的可能序列计算分数复杂度很高，可以通过转移的方式计算$Z(\mathbf{x})$，具体推导过程见CSDN [BiLSTM中的CRF层（三）CRF损失函数](https://blog.csdn.net/u013963380/article/details/108696552)
 
