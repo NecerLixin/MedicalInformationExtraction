@@ -21,6 +21,7 @@
    LSTM加CRF是NLP中序列标注的基本模型，LSTM为一个编码器，CRF为解码算法。
    具体模型结构如下：
    - 序列编码
+     
         ```math
             \mathbf{x}=[x_1,x_2,x_3,\cdots],\\
             H = \text{LSTM}(\text{Embedding}(\mathbf{x})) = [h_1, h_2, \cdots]
