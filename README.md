@@ -37,6 +37,7 @@
     $y_{x_i,z_i}$是隐藏状态 $x_i$ 转移到观察状态 $z_i$的得分，可以由之前的线性层的输出结果得到。 $T_{z_i,z_{i+1}}$是转移矩阵中的第 $i$个观察状态转移到第 $i+1$个状态的概率得分。
     发射矩阵就是通过LSTM编码后的向量经过线性层得到的结果，转移矩阵是CRF中待学习的参数。
     最后经过维特比解码算法求解：
+
     <div style="text-align: center">
       <img src="img/formula_z_start.png" alt="维特比算法求解" width="25%">
     </div>
@@ -56,6 +57,7 @@
       - $z$是所有可能的序列标签的集合。
 
     对于一个序列，它的损失函数计算公式如下：
+    
     <img src="img/formula_crf_loss.png" alt="CRF损失函数" width="50%">
     <!-- ```math
     \begin{aligned}
